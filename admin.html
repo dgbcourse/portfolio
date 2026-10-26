@@ -1,56 +1,1611 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Admin | Himesh Patel</title>
-<style>
-*{box-sizing:border-box;margin:0}body{background:#07050f;color:#eceaff;font:15px/1.5 system-ui,Segoe UI,Arial,sans-serif}
-[hidden]{display:none!important}a{color:#7dd3fc}
-#login{min-height:100vh;display:grid;place-items:center;padding:20px}#login form{width:100%;max-width:360px}
-h1,h2{margin-bottom:14px}h3{margin:18px 0 10px}.mu{color:#a9a5c9;font-size:13px}.bad{color:#fca5a5}
-.c{background:#14112b;border:1px solid #2a2550;border-radius:14px;padding:16px;margin-bottom:12px}
-label{display:block;font-size:13px;color:#a9a5c9;margin-bottom:12px}
-input,select,textarea{width:100%;margin-top:5px;padding:11px 13px;border-radius:10px;border:1px solid #3a3466;background:#0d0a20;color:#eceaff;font:inherit}
-button{padding:9px 16px;border-radius:10px;border:1px solid #3a3466;background:#1b1740;color:#eceaff;cursor:pointer;font:inherit;margin:4px 6px 0 0}
-button:hover{border-color:#7dd3fc}button.p{background:#4f46e5;border:0}button.d{color:#fca5a5}
-#app{display:grid;grid-template-columns:200px 1fr;min-height:100vh}
-nav{background:#0d0a20;border-right:1px solid #2a2550;padding:18px 12px}nav b{display:block;margin:0 8px 16px;font-size:17px}
-nav button{display:block;width:100%;text-align:left;border:0;background:none;margin:2px 0}nav button.on{background:#4f46e5}
-main{padding:24px;max-width:860px;width:100%}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px}
-.stats .c{text-align:center;margin:0}.stats b{font-size:30px;display:block;color:#7dd3fc}.stats span{font-size:12px;color:#a9a5c9}
-.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
-.tg{font-size:11px;padding:2px 9px;border-radius:20px;background:#2a2550}.tg.live,.tg.quote{background:#14532d;color:#86efac}.tg.soon{background:#713f12;color:#fde68a}
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#4f46e5;padding:10px 20px;border-radius:30px;opacity:0;transition:.3s;pointer-events:none}
-@media(max-width:700px){#app{grid-template-columns:1fr}nav{display:flex;flex-wrap:wrap;gap:4px;border:0;border-bottom:1px solid #2a2550}nav b{width:100%;margin:0 0 6px}nav button{width:auto}main{padding:16px}}
-</style></head><body>
-<div id="login"><form class="c" id="lf"><h1>Admin Login</h1><label>Email<input id="em" type="email" required autocomplete="username"></label><label>Password<input id="pw" type="password" required autocomplete="current-password"></label><button class="p">Login</button><p id="err" class="bad" style="margin-top:10px"></p></form></div>
-<div id="app" hidden><nav><b>Admin Panel</b><button data-t="dash">Dashboard</button><button data-t="apps">Apps</button><button data-t="projects">Projects</button><button data-t="messages">Messages</button><button data-t="settings">Settings</button><button onclick="auth.signOut()">Logout</button><a href="index.html" style="margin:10px 8px;display:block;font-size:13px">View website</a></nav><main id="main"></main></div>
-<div id="toast"></div>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
-<script>
-const $=s=>document.querySelector(s),E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let auth,db,tab='dash',ed={};
-const COL={apps:{t:'Apps',f:[['name','App name'],['desc','Short description','ta'],['cat','Category'],['icon','Icon (emoji or image link)'],['status','Status','sel'],['link','Google Play link'],['order','Order (1 = shown first)','num']]},
-projects:{t:'Projects',f:[['name','Project name'],['tag','Type (Website, Java, Android...)'],['desc','Description','ta'],['demo','Live demo link'],['github','GitHub link']]}};
-const get=async n=>(await db.collection(n).get()).docs.map(d=>({id:d.id,...d.data()})),ts=m=>m.created&&m.created.toDate?m.created.toDate():new Date(0);
-const toast=t=>{const e=$('#toast');e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,2500)},st=(n,l)=>`<div class="c"><b>${n}</b><span>${l}</span></div>`;
-const C=window.FB_CONFIG;
-if(!C||!C.apiKey||C.apiKey.indexOf('PASTE')==0){$('#err').textContent='Firebase is not set up yet. Fill firebase-config.js first.'}else{
-if(!firebase.apps.length){firebase.initializeApp(C);}
-auth=firebase.auth();db=firebase.firestore();
-const adminEm=(window.ADMIN_EMAIL||'').toLowerCase();
-auth.onAuthStateChanged(u=>{const ok=u&&u.email&&u.email.toLowerCase()==adminEm;if(u&&!ok){auth.signOut();$('#err').textContent='This account is not allowed.'}$('#login').hidden=!!ok;$('#app').hidden=!ok;if(ok)go('dash')})}
-$('#lf').onsubmit=async e=>{e.preventDefault();$('#err').textContent='';if(!auth)return;try{await auth.signInWithEmailAndPassword($('#em').value.trim(),$('#pw').value)}catch(x){$('#err').textContent='Wrong email or password.'}};
-document.querySelectorAll('nav button[data-t]').forEach(b=>b.onclick=()=>go(b.dataset.t));
-async function go(t){tab=t;document.querySelectorAll('nav button[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t==t));const m=$('#main');m.textContent='Loading...';try{await V[t](m)}catch(x){m.innerHTML='<p class="bad">Error: '+E(x.message)+'</p>'}}
-async function del(n,id){if(!confirm('Delete this permanently?'))return;await db.collection(n).doc(id).delete();toast('Deleted');go(tab)}
-const setSt=(id,v)=>db.collection('messages').doc(id).update({status:v}).then(()=>toast('Updated'));
-async function col(m,n){const k=COL[n],L=(await get(n)).sort((a,b)=>(+a.order||99)-(+b.order||99)),x=L.find(i=>i.id==ed[n])||{};
-m.innerHTML=`<h2>${k.t}</h2><form class="c" id="f">${k.f.map(([id,lb,ty])=>`<label>${lb}${ty=='ta'?`<textarea name="${id}" rows="3">${E(x[id])}</textarea>`:ty=='sel'?`<select name="${id}"><option value="soon" ${x[id]!='live'?'selected':''}>Coming Soon</option><option value="live" ${x[id]=='live'?'selected':''}>Live</option></select>`:`<input name="${id}" type="${ty=='num'?'number':'text'}" value="${E(x[id])}">`}</label>`).join('')}<button class="p">${x.id?'Save changes':'Add'}</button>${x.id?`<button type="button" onclick="ed.${n}=null;go(tab)">Cancel</button>`:''}</form><h3>${L.length} item(s)</h3>${L.map(i=>`<div class="c row"><div><b>${E(i.name)}</b> ${i.status?`<span class="tg ${i.status}">${i.status=='live'?'Live':'Soon'}</span>`:''}<br><span class="mu">${E((i.desc||'').slice(0,90))}</span></div><div><button onclick="ed.${n}='${i.id}';go(tab)">Edit</button><button class="d" onclick="del('${n}','${i.id}')">Delete</button></div></div>`).join('')}`;
-$('#f').onsubmit=async e=>{e.preventDefault();const d={};k.f.forEach(([id,,ty])=>{const v=e.target.elements[id].value.trim();d[id]=ty=='num'?(+v||99):v});if(!d.name)return toast('Name is required');if(d.status=='live'&&!/^https?:\/\//.test(d.link||''))return toast('Add the Google Play link for a Live app');const r=db.collection(n);x.id?await r.doc(x.id).set(d,{merge:true}):await r.add({...d,created:firebase.firestore.FieldValue.serverTimestamp()});ed[n]=null;toast('Saved');go(tab)}}
-const V={async dash(m){const[a,p,ms]=await Promise.all([get('apps'),get('projects'),get('messages')]);m.innerHTML=`<h2>Dashboard</h2><div class="stats">${st(a.length,'Apps')}${st(a.filter(x=>x.status=='live').length,'Live on Play Store')}${st(p.length,'Projects')}${st(ms.filter(x=>x.status=='new').length,'New messages')}${st(ms.length,'Total messages')}</div><p class="mu">Add an app in Apps. When you set it to Live with its Play Store link, your website shows a Get it on Google Play button on that app.</p>`},
-apps:m=>col(m,'apps'),projects:m=>col(m,'projects'),
-async messages(m){const L=(await get('messages')).sort((a,b)=>ts(b)-ts(a));m.innerHTML='<h2>Messages and Quotes</h2>'+(L.length?'':'<p class="mu">No messages yet.</p>')+L.map(i=>{const c=E(i.email||''),r=/@/.test(i.email||'')?`<a href="mailto:${c}">Reply by email</a> `:/\d{8,}/.test(i.email||'')?`<a target="_blank" rel="noopener" href="https://wa.me/${(i.email||'').replace(/\D/g,'')}">Reply on WhatsApp</a> `:'';return `<div class="c"><div class="row"><div><span class="tg ${i.type=='quote'?'quote':''}">${i.type=='quote'?'Quote':'Message'}</span> <b>${E(i.name)}</b><br><span class="mu">${c} | ${ts(i).toLocaleString()}</span></div><select style="width:auto" onchange="setSt('${i.id}',this.value)">${['new','contacted','done'].map(s=>`<option ${i.status==s?'selected':''}>${s}</option>`).join('')}</select></div>${i.type=='quote'?`<p class="mu">${E(i.qType)} | ${E(i.budget)} | ${E(i.time)}</p>`:''}<p style="margin:8px 0;white-space:pre-wrap">${E(i.details)}</p>${r}<button class="d" onclick="del('messages','${i.id}')">Delete</button></div>`}).join('')},
-async settings(m){const d=await db.collection('settings').doc('site').get(),s=d.exists?d.data():{},F=[['whatsapp','WhatsApp number with country code, digits only (like 919876543210)'],['email','Email'],['instagram','Instagram link'],['linkedin','LinkedIn link'],['github','GitHub link'],['cv','Resume PDF link (like https://portfolio-himesh.vercel.app/resume.pdf)']];
-m.innerHTML=`<h2>Site Settings</h2><form class="c" id="f">${F.map(([id,l])=>`<label>${l}<input name="${id}" value="${E(s[id])}"></label>`).join('')}<button class="p">Save settings</button></form>`;
-$('#f').onsubmit=async e=>{e.preventDefault();const o={};F.forEach(([id])=>o[id]=e.target.elements[id].value.trim());await db.collection('settings').doc('site').set(o,{merge:true});toast('Saved')}}};
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Admin | Himesh Patel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07050f;
+      --card-bg: rgba(14, 12, 32, 0.7);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --card-hover-border: rgba(129, 140, 248, 0.35);
+      --tx-main: #eceaff;
+      --tx-muted: #c9c5e8;
+      --tx-dim: #8b87b3;
+      --sky: #7dd3fc;
+      --indigo: #818cf8;
+      --violet: #a78bfa;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --danger: #f87171;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      --danger-border: rgba(248, 113, 113, 0.3);
+      --success: #34d399;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --success-border: rgba(52, 211, 153, 0.3);
+      --amber: #fbbf24;
+      --amber-bg: rgba(245, 158, 11, 0.12);
+      --amber-border: rgba(251, 191, 36, 0.3);
+      --sidebar-w: 260px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--tx-main);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    a {
+      color: var(--sky);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    a:hover {
+      color: #bae6fd;
+    }
+
+    h1, h2, h3, h4, .font-head {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      letter-spacing: -0.02em;
+      color: var(--tx-main);
+    }
+
+    .aurora {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+    .aurora-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.16;
+      animation: auroraMove 24s infinite alternate ease-in-out;
+    }
+    .aurora-1 {
+      width: 520px;
+      height: 520px;
+      background: var(--primary);
+      top: -120px;
+      left: -80px;
+    }
+    .aurora-2 {
+      width: 580px;
+      height: 580px;
+      background: var(--sky);
+      bottom: -150px;
+      right: -100px;
+      animation-duration: 28s;
+      animation-delay: -6s;
+    }
+    .aurora-3 {
+      width: 440px;
+      height: 440px;
+      background: var(--violet);
+      top: 35%;
+      left: 30%;
+      animation-duration: 22s;
+      animation-delay: -11s;
+    }
+    @keyframes auroraMove {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(35px, -25px) scale(1.08); }
+      100% { transform: translate(-30px, 35px) scale(0.94); }
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 24px;
+      transition: border-color 0.25s ease, transform 0.25s ease;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 14px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--tx-main);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      border-color: var(--card-hover-border);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .btn:focus-visible {
+      outline: 2px solid var(--indigo);
+      outline-offset: 2px;
+    }
+    .btn.btn-p {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(79, 70, 229, 0.35);
+    }
+    .btn.btn-p:hover {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+      box-shadow: 0 6px 24px rgba(79, 70, 229, 0.5);
+    }
+    .btn.btn-d {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger);
+    }
+    .btn.btn-d:hover {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: var(--danger);
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
+    }
+    .btn.btn-sm {
+      padding: 7px 14px;
+      font-size: 13px;
+      border-radius: 10px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      margin-top: 6px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(8, 6, 20, 0.7);
+      color: var(--tx-main);
+      font-family: inherit;
+      font-size: 14px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--indigo);
+      box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18);
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--tx-muted);
+      margin-bottom: 14px;
+    }
+    .helper {
+      display: block;
+      font-size: 12px;
+      color: var(--tx-dim);
+      margin-top: 5px;
+    }
+
+    #login {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .login-box {
+      width: 100%;
+      max-width: 410px;
+      padding: 38px 32px;
+    }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .brand-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: #fff;
+    }
+    .brand-logo .dot {
+      color: var(--sky);
+    }
+    .brand-pill {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: rgba(129, 140, 248, 0.16);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      color: var(--indigo);
+    }
+    .login-title {
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+    .login-sub {
+      color: var(--tx-muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrap svg.input-icon {
+      position: absolute;
+      left: 14px;
+      color: var(--tx-dim);
+      pointer-events: none;
+    }
+    .input-wrap input {
+      padding-left: 42px;
+      margin-top: 0;
+    }
+    .input-wrap .toggle-pw {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: 0;
+      color: var(--tx-muted);
+      cursor: pointer;
+      padding: 6px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+    }
+    .input-wrap .toggle-pw:hover {
+      color: #fff;
+    }
+    .error-box {
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .error-box.show {
+      display: flex;
+    }
+
+    #app {
+      display: flex;
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+      width: 100%;
+    }
+
+    aside {
+      background: rgba(9, 7, 20, 0.9);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      z-index: 20;
+    }
+    .sidebar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 8px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 18px;
+    }
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+    }
+    nav button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      text-align: left;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--tx-muted);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    nav button:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+    nav button.on {
+      background: var(--primary);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+    }
+    nav button svg {
+      flex-shrink: 0;
+    }
+    .sidebar-footer {
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      color: var(--sky);
+      transition: background 0.2s ease;
+    }
+    .sidebar-link:hover {
+      background: rgba(125, 211, 252, 0.08);
+    }
+
+    .main-wrap {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: calc(100% - var(--sidebar-w));
+    }
+    header.topbar {
+      height: 72px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(7, 5, 15, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      width: 100%;
+    }
+    .page-title {
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--tx-muted);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    main {
+      padding: 32px;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0;
+      box-sizing: border-box;
+      flex: 1;
+    }
+
+    .fade-enter {
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    .stat-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .stat-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: rgba(129, 140, 248, 0.14);
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      color: var(--sky);
+    }
+    .stat-card b {
+      font-size: 36px;
+      line-height: 1;
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .stat-card span {
+      font-size: 13px;
+      color: var(--tx-muted);
+      font-weight: 500;
+    }
+
+    .guide-card {
+      border-left: 3px solid var(--indigo);
+      margin-top: 12px;
+    }
+    .guide-card h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .guide-card p {
+      color: var(--tx-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .form-col-full {
+      grid-column: 1 / -1;
+    }
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      grid-column: 1 / -1;
+    }
+
+    .items-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 32px 0 16px;
+    }
+    .items-count {
+      font-size: 13px;
+      color: var(--tx-dim);
+    }
+
+    .item-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 20px;
+      margin-bottom: 12px;
+    }
+    .item-main {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      flex: 1;
+    }
+    .item-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      color: var(--sky);
+      font-size: 20px;
+    }
+    .item-icon-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .item-content h3 {
+      font-size: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .item-desc {
+      color: var(--tx-muted);
+      font-size: 13.5px;
+      margin-top: 4px;
+      max-width: 680px;
+    }
+    .item-links {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 12.5px;
+    }
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      text-transform: capitalize;
+    }
+    .badge.live {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success);
+    }
+    .badge.soon {
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: var(--amber);
+    }
+    .badge.tag {
+      background: rgba(129, 140, 248, 0.14);
+      border: 1px solid rgba(129, 140, 248, 0.28);
+      color: var(--indigo);
+    }
+    .badge.quote {
+      background: rgba(167, 139, 250, 0.16);
+      border: 1px solid rgba(167, 139, 250, 0.32);
+      color: var(--violet);
+    }
+    .badge.contact {
+      background: rgba(125, 211, 252, 0.14);
+      border: 1px solid rgba(125, 211, 252, 0.28);
+      color: var(--sky);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-tab {
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--tx-muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .filter-tab:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+    .filter-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    }
+
+    .msg-card {
+      padding: 22px;
+      margin-bottom: 14px;
+    }
+    .msg-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .msg-sender {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .msg-contact {
+      font-size: 13px;
+      color: var(--tx-muted);
+    }
+    .msg-time {
+      font-size: 12px;
+      color: var(--tx-dim);
+    }
+    .status-select {
+      width: auto;
+      margin: 0;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: capitalize;
+    }
+    .quote-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+    .quote-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--tx-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .msg-body {
+      background: rgba(6, 4, 16, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--tx-main);
+      margin: 12px 0 16px;
+    }
+    .msg-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--tx-dim);
+    }
+    .empty-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 16px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--indigo);
+    }
+    .empty-state h3 {
+      font-size: 17px;
+      color: var(--tx-main);
+      margin-bottom: 6px;
+    }
+    .empty-state p {
+      font-size: 13.5px;
+      color: var(--tx-muted);
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .settings-group {
+      margin-bottom: 24px;
+    }
+    .settings-group h3 {
+      font-size: 16px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--sky);
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(17, 14, 38, 0.95);
+      border: 1px solid rgba(129, 140, 248, 0.4);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(79, 70, 229, 0.3);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 3, 10, 0.8);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      z-index: 99;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 440px;
+      padding: 28px;
+      border-radius: 20px;
+      background: #0d0a22;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .modal-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .modal-desc {
+      color: var(--tx-muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .skeleton-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.07) 50%, rgba(255, 255, 255, 0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 16px;
+      height: 90px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    @media (max-width: 900px) {
+      #app {
+        flex-direction: column;
+      }
+      aside {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 64px;
+        padding: 6px 10px;
+        flex-direction: row;
+        border-right: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(9, 7, 20, 0.95);
+        justify-content: space-around;
+        align-items: center;
+        z-index: 50;
+      }
+      .sidebar-head, .sidebar-footer {
+        display: none;
+      }
+      nav {
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-around;
+        gap: 2px;
+      }
+      nav button {
+        flex-direction: column;
+        padding: 6px 8px;
+        gap: 4px;
+        font-size: 10px;
+        text-align: center;
+        border-radius: 8px;
+      }
+      nav button svg {
+        width: 18px;
+        height: 18px;
+      }
+      nav button span {
+        display: block;
+      }
+      .main-wrap {
+        width: 100%;
+        margin-left: 0;
+        padding-bottom: 74px;
+      }
+      header.topbar {
+        padding: 0 16px;
+        height: 60px;
+      }
+      main {
+        padding: 20px 16px;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .item-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .item-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+      .login-box {
+        padding: 28px 20px;
+      }
+    }
+    @media (max-width: 520px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora">
+    <div class="aurora-blob aurora-1"></div>
+    <div class="aurora-blob aurora-2"></div>
+    <div class="aurora-blob aurora-3"></div>
+  </div>
+
+  <div id="login">
+    <div class="glass-card login-box">
+      <div class="login-brand">
+        <span class="brand-logo">HP<span class="dot">.</span></span>
+        <span class="brand-pill">Admin</span>
+      </div>
+      <h1 class="login-title">Admin Login</h1>
+      <p class="login-sub">Sign in to manage your portfolio, apps & messages</p>
+      <form id="lf">
+        <label>Email Address
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <input id="em" type="email" required autocomplete="username" placeholder="your-email@gmail.com">
+          </div>
+        </label>
+        <label>Password
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input id="pw" type="password" required autocomplete="current-password" placeholder="Enter password">
+            <button type="button" class="toggle-pw" id="togglePw" aria-label="Toggle password visibility">
+              <svg id="eyeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </label>
+        <button id="lBtn" class="btn btn-p" style="width: 100%; margin-top: 8px;">
+          <span>Sign In</span>
+        </button>
+        <div id="err" class="error-box">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="errMsg"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <aside>
+      <div class="sidebar-head">
+        <div class="brand-logo">HP<span class="dot">.</span></div>
+        <span class="brand-pill">Admin</span>
+      </div>
+      <nav>
+        <button data-t="dash" class="on">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button data-t="apps">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M12 18h.01"/></svg>
+          <span>Apps</span>
+        </button>
+        <button data-t="projects">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span>Projects</span>
+        </button>
+        <button data-t="messages">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Messages</span>
+        </button>
+        <button data-t="settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Settings</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="sidebar-link" href="index.html" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>View Website</span>
+        </a>
+        <button class="btn btn-d btn-sm" onclick="auth.signOut()" style="width: 100%; margin-top: 4px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>Logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="main-wrap">
+      <header class="topbar">
+        <h2 id="topbarTitle" class="page-title">Dashboard</h2>
+        <div class="user-chip">
+          <span class="status-dot"></span>
+          <span id="userEmail">Admin</span>
+        </div>
+      </header>
+      <main id="main" class="fade-enter"></main>
+    </div>
+  </div>
+
+  <div id="del-modal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </div>
+        <div>
+          <h3 id="del-modal-title" class="modal-title">Delete Item</h3>
+          <span style="font-size: 12px; color: var(--tx-dim);">Confirm deletion</span>
+        </div>
+      </div>
+      <p id="del-modal-desc" class="modal-desc">Are you sure you want to permanently delete this? This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button id="del-modal-cancel" class="btn">Cancel</button>
+        <button id="del-modal-confirm" class="btn btn-d">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+    const $ = s => document.querySelector(s);
+    const E = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const ICONS = {
+      dash: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>`,
+      apps: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M12 18h.01"/></svg>`,
+      live: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+      projects: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`,
+      messages: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+      mail: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+      whatsapp: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.5 7.3L3 20l1.3-5A8.4 8.4 0 1 1 21 11.5z"/></svg>`,
+      ext: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+      edit: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+      trash: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+      check: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+      clock: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+      dollar: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+      folder: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`,
+      empty: `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+      info: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`
+    };
+
+    let auth, db, tab = 'dash', ed = {}, msgFilter = 'all';
+
+    const COL = {
+      apps: {
+        t: 'Apps',
+        sub: 'Manage apps shown on your portfolio website',
+        f: [
+          ['name', 'App Name', 'text', 'e.g. Expense Manager'],
+          ['cat', 'Category', 'text', 'e.g. Finance, Productivity, Utility'],
+          ['icon', 'Icon (emoji or image link)', 'text', 'Image URL or icon text'],
+          ['status', 'Status', 'sel', ''],
+          ['order', 'Display Order (1 = shown first)', 'num', '1'],
+          ['link', 'Google Play Link (required for Live)', 'text', 'https://play.google.com/store/apps/details?id=...'],
+          ['desc', 'Short Description', 'ta', 'Tell visitors what this app does...']
+        ]
+      },
+      projects: {
+        t: 'Projects',
+        sub: 'Manage projects, websites & GitHub repositories',
+        f: [
+          ['name', 'Project Name', 'text', 'e.g. 3D Galaxy Portfolio'],
+          ['tag', 'Project Type', 'text', 'e.g. Website, Java, Android, Full Stack'],
+          ['demo', 'Live Demo Link', 'text', 'https://...'],
+          ['github', 'GitHub Repository Link', 'text', 'https://github.com/...'],
+          ['desc', 'Description', 'ta', 'Overview of the project and key technologies...']
+        ]
+      }
+    };
+
+    const get = async n => (await db.collection(n).get()).docs.map(d => ({ id: d.id, ...d.data() }));
+    const ts = m => (m && m.created && m.created.toDate) ? m.created.toDate() : new Date(0);
+
+    const toast = t => {
+      const e = $('#toast');
+      e.innerHTML = `${ICONS.check} <span>${E(t)}</span>`;
+      e.classList.add('show');
+      setTimeout(() => e.classList.remove('show'), 2600);
+    };
+
+    const confirmDelete = (title, message) => {
+      return new Promise(resolve => {
+        const modal = $('#del-modal');
+        $('#del-modal-title').textContent = title || 'Delete Item';
+        $('#del-modal-desc').textContent = message || 'Are you sure you want to permanently delete this? This action cannot be undone.';
+        modal.hidden = false;
+        requestAnimationFrame(() => modal.classList.add('open'));
+        const cleanup = ok => {
+          modal.classList.remove('open');
+          setTimeout(() => { modal.hidden = true; }, 200);
+          $('#del-modal-confirm').removeEventListener('click', onConfirm);
+          $('#del-modal-cancel').removeEventListener('click', onCancel);
+          resolve(ok);
+        };
+        const onConfirm = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        $('#del-modal-confirm').addEventListener('click', onConfirm, { once: true });
+        $('#del-modal-cancel').addEventListener('click', onCancel, { once: true });
+      });
+    };
+
+    const CFG = window.FB_CONFIG || {
+      apiKey: "AIzaSyByxwTz3jYZ0wvDQ37SGuEf7HwMXfkbqF0",
+      authDomain: "portfolio-e5ff3.firebaseapp.com",
+      projectId: "portfolio-e5ff3",
+      storageBucket: "portfolio-e5ff3.firebasestorage.app",
+      messagingSenderId: "913448537607",
+      appId: "1:913448537607:web:f971c499948d96e83ee4a2"
+    };
+    const ADMIN_EM = (window.ADMIN_EMAIL || "dgbc2906@gmail.com").toLowerCase();
+
+    if (!CFG || !CFG.apiKey || CFG.apiKey.indexOf('PASTE') === 0) {
+      const errBox = $('#err');
+      $('#errMsg').textContent = 'Firebase is not set up yet. Fill firebase-config.js first.';
+      errBox.classList.add('show');
+    } else {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(CFG);
+      }
+      auth = firebase.auth();
+      db = firebase.firestore();
+
+      auth.onAuthStateChanged(u => {
+        const ok = u && u.email && u.email.toLowerCase() === ADMIN_EM;
+        if (u && !ok) {
+          auth.signOut();
+          const errBox = $('#err');
+          $('#errMsg').textContent = 'This account is not authorized for admin access.';
+          errBox.classList.add('show');
+        }
+        $('#login').hidden = !!ok;
+        $('#app').hidden = !ok;
+        if (ok) {
+          $('#userEmail').textContent = u.email;
+          go('dash');
+        }
+      });
+    }
+
+    $('#lf').onsubmit = async e => {
+      e.preventDefault();
+      const errBox = $('#err');
+      errBox.classList.remove('show');
+      if (!auth) return;
+      const btn = $('#lBtn');
+      const prevHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Signing In...</span>';
+      try {
+        await auth.signInWithEmailAndPassword($('#em').value.trim(), $('#pw').value);
+      } catch (x) {
+        $('#errMsg').textContent = 'Wrong email or password. Please try again.';
+        errBox.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = prevHtml;
+      }
+    };
+
+    $('#togglePw').onclick = () => {
+      const pwInput = $('#pw');
+      const isPw = pwInput.type === 'password';
+      pwInput.type = isPw ? 'text' : 'password';
+      $('#eyeIcon').innerHTML = isPw
+        ? `<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/>`
+        : `<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>`;
+    };
+
+    document.querySelectorAll('nav button[data-t]').forEach(b => {
+      b.onclick = () => go(b.dataset.t);
+    });
+
+    async function go(t) {
+      tab = t;
+      document.querySelectorAll('nav button[data-t]').forEach(b => {
+        b.classList.toggle('on', b.dataset.t === t);
+      });
+      const titles = { dash: 'Dashboard', apps: 'Apps Management', projects: 'Projects Management', messages: 'Messages & Quotes', settings: 'Site Settings' };
+      $('#topbarTitle').textContent = titles[t] || 'Admin';
+      const m = $('#main');
+      m.className = 'skeleton-grid';
+      m.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
+      try {
+        await V[t](m);
+        m.className = 'fade-enter';
+      } catch (x) {
+        m.className = 'fade-enter';
+        m.innerHTML = `<div class="glass-card error-box show">${ICONS.info} <span>Error: ${E(x.message)}</span></div>`;
+      }
+    }
+
+    async function del(n, id) {
+      const ok = await confirmDelete('Delete Item', 'Are you sure you want to permanently delete this? This action cannot be undone.');
+      if (!ok) return;
+      try {
+        await db.collection(n).doc(id).delete();
+        toast('Deleted successfully');
+        go(tab);
+      } catch (x) {
+        toast('Error deleting item');
+      }
+    }
+
+    const setSt = (id, v) => db.collection('messages').doc(id).update({ status: v }).then(() => toast('Status updated'));
+
+    async function col(m, n) {
+      const k = COL[n];
+      const L = (await get(n)).sort((a, b) => (+a.order || 99) - (+b.order || 99));
+      const x = L.find(i => i.id == ed[n]) || {};
+
+      const formFields = k.f.map(([id, lb, ty, ph]) => {
+        const isFull = ty === 'ta' || id === 'link';
+        return `
+          <div class="${isFull ? 'form-col-full' : ''}">
+            <label>${E(lb)}
+              ${ty === 'ta'
+                ? `<textarea name="${id}" rows="3" placeholder="${E(ph || '')}">${E(x[id])}</textarea>`
+                : ty === 'sel'
+                  ? `<select name="${id}">
+                      <option value="soon" ${x[id] !== 'live' ? 'selected' : ''}>Coming Soon</option>
+                      <option value="live" ${x[id] === 'live' ? 'selected' : ''}>Live on Google Play</option>
+                    </select>`
+                  : `<input name="${id}" type="${ty === 'num' ? 'number' : 'text'}" placeholder="${E(ph || '')}" value="${E(x[id])}">`
+              }
+            </label>
+          </div>
+        `;
+      }).join('');
+
+      const itemsHtml = L.length === 0
+        ? `
+          <div class="glass-card empty-state">
+            <div class="empty-icon">${ICONS.empty}</div>
+            <h3>No ${E(k.t)} Added Yet</h3>
+            <p>Use the form above to add your first ${n === 'apps' ? 'app' : 'project'}. It will appear on your live portfolio.</p>
+          </div>
+        `
+        : L.map(i => {
+            const hasLink = /^https?:\/\//.test(i.link || '');
+            const hasDemo = /^https?:\/\//.test(i.demo || '');
+            const hasGh = /^https?:\/\//.test(i.github || '');
+            const isImg = /^https?:\/\//.test(i.icon || '');
+            const iconDisplay = isImg
+              ? `<img src="${E(i.icon)}" alt="" onerror="this.onerror=null;this.parentNode.innerHTML='${ICONS.apps}';">`
+              : (i.icon ? `<span>${E(i.icon)}</span>` : (n === 'apps' ? ICONS.apps : ICONS.projects));
+
+            return `
+              <div class="glass-card item-card">
+                <div class="item-main">
+                  <div class="item-icon-box">${iconDisplay}</div>
+                  <div class="item-content">
+                    <h3>
+                      <span>${E(i.name)}</span>
+                      ${i.status ? `<span class="badge ${i.status}">${i.status === 'live' ? 'Live on Play Store' : 'Coming Soon'}</span>` : ''}
+                      ${i.tag ? `<span class="badge tag">${E(i.tag)}</span>` : ''}
+                    </h3>
+                    <p class="item-desc">${E(i.desc || 'No description provided.')}</p>
+                    <div class="item-links">
+                      ${hasLink ? `<a href="${E(i.link)}" target="_blank" rel="noopener">${ICONS.ext} Google Play</a>` : ''}
+                      ${hasDemo ? `<a href="${E(i.demo)}" target="_blank" rel="noopener">${ICONS.ext} Live Demo</a>` : ''}
+                      ${hasGh ? `<a href="${E(i.github)}" target="_blank" rel="noopener">${ICONS.ext} GitHub</a>` : ''}
+                      ${i.cat ? `<span style="color:var(--tx-dim);">Category: ${E(i.cat)}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div class="item-actions">
+                  <button class="btn btn-sm" onclick="ed.${n}='${i.id}';go(tab)">${ICONS.edit} <span>Edit</span></button>
+                  <button class="btn btn-d btn-sm" onclick="del('${n}','${i.id}')">${ICONS.trash} <span>Delete</span></button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+      m.innerHTML = `
+        <div class="glass-card" style="margin-bottom: 24px;">
+          <h2 style="font-size: 20px; margin-bottom: 4px;">${x.id ? 'Edit ' + E(k.t.slice(0, -1)) : 'Add New ' + E(k.t.slice(0, -1))}</h2>
+          <p style="color: var(--tx-muted); font-size: 13.5px; margin-bottom: 20px;">${E(k.sub)}</p>
+          <form id="f">
+            <div class="form-grid">${formFields}</div>
+            <div class="form-actions">
+              <button class="btn btn-p">${x.id ? ICONS.check + ' Save Changes' : ICONS.check + ' Add ' + E(k.t.slice(0, -1))}</button>
+              ${x.id ? `<button type="button" class="btn" onclick="ed.${n}=null;go(tab)">Cancel</button>` : ''}
+            </div>
+          </form>
+        </div>
+        <div class="items-header">
+          <h3 style="font-size: 18px;">Existing ${E(k.t)}</h3>
+          <span class="items-count">${L.length} item${L.length === 1 ? '' : 's'}</span>
+        </div>
+        <div>${itemsHtml}</div>
+      `;
+
+      $('#f').onsubmit = async e => {
+        e.preventDefault();
+        const d = {};
+        k.f.forEach(([id, , ty]) => {
+          const v = e.target.elements[id].value.trim();
+          d[id] = ty === 'num' ? (+v || 99) : v;
+        });
+        if (!d.name) return toast('Name is required');
+        if (d.status === 'live' && !/^https?:\/\//.test(d.link || '')) {
+          return toast('Add the Google Play link for a Live app');
+        }
+        const r = db.collection(n);
+        if (x.id) {
+          await r.doc(x.id).set(d, { merge: true });
+        } else {
+          await r.add({ ...d, created: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+        ed[n] = null;
+        toast('Saved successfully');
+        go(tab);
+      };
+    }
+
+    const V = {
+      async dash(m) {
+        const [a, p, ms] = await Promise.all([get('apps'), get('projects'), get('messages')]);
+        const liveApps = a.filter(x => x.status === 'live').length;
+        const newMsgs = ms.filter(x => x.status === 'new').length;
+
+        m.innerHTML = `
+          <div class="stats-grid">
+            <div class="glass-card stat-card">
+              <div class="stat-header">
+                <span>Apps</span>
+                <div class="stat-icon">${ICONS.apps}</div>
+              </div>
+              <b>${a.length}</b>
+              <span>Planned & Built</span>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-header">
+                <span>Live on Play Store</span>
+                <div class="stat-icon" style="color:var(--success); border-color:var(--success-border); background:var(--success-bg);">${ICONS.live}</div>
+              </div>
+              <b style="color:var(--success);">${liveApps}</b>
+              <span>Published & Public</span>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-header">
+                <span>Projects</span>
+                <div class="stat-icon">${ICONS.projects}</div>
+              </div>
+              <b>${p.length}</b>
+              <span>Portfolio Demos</span>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-header">
+                <span>New Messages</span>
+                <div class="stat-icon" style="color:var(--sky); border-color:rgba(125,211,252,0.3); background:rgba(125,211,252,0.12);">${ICONS.messages}</div>
+              </div>
+              <b style="color:var(--sky);">${newMsgs}</b>
+              <span>Pending Inquiries</span>
+            </div>
+            <div class="glass-card stat-card">
+              <div class="stat-header">
+                <span>Total Messages</span>
+                <div class="stat-icon">${ICONS.messages}</div>
+              </div>
+              <b>${ms.length}</b>
+              <span>All-time Submissions</span>
+            </div>
+          </div>
+
+          <div class="glass-card guide-card">
+            <h3>${ICONS.info} <span>Admin Workflow & Tips</span></h3>
+            <p style="margin-bottom: 8px;">
+              <strong>Apps:</strong> Add an app and set its status to <em>Live</em> with its Google Play link. Your website will immediately show a <strong>Get it on Google Play</strong> button on that card.
+            </p>
+            <p style="margin-bottom: 8px;">
+              <strong>Messages:</strong> When potential clients send a project quote or message from your website, they appear under <strong>Messages</strong>. You can reply instantly via Email or WhatsApp.
+            </p>
+            <p>
+              <strong>Settings:</strong> Update your WhatsApp phone number, Resume PDF link, or Social Media URLs without touching the HTML code.
+            </p>
+          </div>
+        `;
+      },
+
+      apps: m => col(m, 'apps'),
+      projects: m => col(m, 'projects'),
+
+      async messages(m) {
+        const L = (await get('messages')).sort((a, b) => ts(b) - ts(a));
+        const filtered = L.filter(i => {
+          if (msgFilter === 'all') return true;
+          return (i.status || 'new') === msgFilter;
+        });
+
+        const filterTabs = `
+          <div class="filter-tabs">
+            <button class="filter-tab ${msgFilter === 'all' ? 'active' : ''}" onclick="msgFilter='all';go(tab)">All (${L.length})</button>
+            <button class="filter-tab ${msgFilter === 'new' ? 'active' : ''}" onclick="msgFilter='new';go(tab)">New (${L.filter(x => x.status === 'new').length})</button>
+            <button class="filter-tab ${msgFilter === 'contacted' ? 'active' : ''}" onclick="msgFilter='contacted';go(tab)">Contacted (${L.filter(x => x.status === 'contacted').length})</button>
+            <button class="filter-tab ${msgFilter === 'done' ? 'active' : ''}" onclick="msgFilter='done';go(tab)">Done (${L.filter(x => x.status === 'done').length})</button>
+          </div>
+        `;
+
+        const msgsHtml = filtered.length === 0
+          ? `
+            <div class="glass-card empty-state">
+              <div class="empty-icon">${ICONS.messages}</div>
+              <h3>No Messages Found</h3>
+              <p>${L.length === 0 ? 'Messages and project quotes submitted through your portfolio contact forms will appear here.' : 'No messages match the selected filter.'}</p>
+            </div>
+          `
+          : filtered.map(i => {
+              const c = E(i.email || '');
+              const isMail = /@/.test(i.email || '');
+              const isPhone = /\d{8,}/.test(i.email || '');
+              const waNum = (i.email || '').replace(/\D/g, '');
+              const stVal = i.status || 'new';
+
+              return `
+                <div class="glass-card msg-card">
+                  <div class="msg-top">
+                    <div>
+                      <div class="msg-meta">
+                        <span class="badge ${i.type === 'quote' ? 'quote' : 'contact'}">${i.type === 'quote' ? 'Quote Request' : 'Contact Message'}</span>
+                        <span class="msg-sender">${E(i.name)}</span>
+                      </div>
+                      <div style="margin-top: 4px;">
+                        <span class="msg-contact">${c}</span>
+                        <span style="color:var(--tx-dim);"> · </span>
+                        <span class="msg-time">${ts(i).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <select class="status-select" onchange="setSt('${i.id}', this.value)" style="border-color:${stVal === 'new' ? 'var(--sky)' : stVal === 'contacted' ? 'var(--amber)' : 'var(--success)'};">
+                      <option value="new" ${stVal === 'new' ? 'selected' : ''}>New</option>
+                      <option value="contacted" ${stVal === 'contacted' ? 'selected' : ''}>Contacted</option>
+                      <option value="done" ${stVal === 'done' ? 'selected' : ''}>Done</option>
+                    </select>
+                  </div>
+                  ${i.type === 'quote' ? `
+                    <div class="quote-chips">
+                      <span class="quote-chip">${ICONS.folder} Project: ${E(i.qType || 'Website')}</span>
+                      <span class="quote-chip">${ICONS.dollar} Budget: ${E(i.budget || 'Flexible')}</span>
+                      <span class="quote-chip">${ICONS.clock} Timeline: ${E(i.time || 'Flexible')}</span>
+                    </div>
+                  ` : ''}
+                  <div class="msg-body">${E(i.details)}</div>
+                  <div class="msg-actions">
+                    ${isMail ? `<a class="btn btn-sm" href="mailto:${c}">${ICONS.mail} <span>Reply by Email</span></a>` : ''}
+                    ${isPhone ? `<a class="btn btn-sm" target="_blank" rel="noopener" href="https://wa.me/${waNum}">${ICONS.whatsapp} <span>Reply on WhatsApp</span></a>` : ''}
+                    <button class="btn btn-d btn-sm" onclick="del('messages','${i.id}')">${ICONS.trash} <span>Delete</span></button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+        m.innerHTML = `
+          <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 22px; margin-bottom: 4px;">Messages & Quotes</h2>
+            <p style="color: var(--tx-muted); font-size: 13.5px;">Client inquiries submitted through your portfolio forms</p>
+          </div>
+          ${filterTabs}
+          <div>${msgsHtml}</div>
+        `;
+      },
+
+      async settings(m) {
+        const d = await db.collection('settings').doc('site').get();
+        const s = d.exists ? d.data() : {};
+
+        m.innerHTML = `
+          <div style="margin-bottom: 24px;">
+            <h2 style="font-size: 22px; margin-bottom: 4px;">Site Settings</h2>
+            <p style="color: var(--tx-muted); font-size: 13.5px;">Configure contact numbers, resume link, and social profiles displayed on your portfolio</p>
+          </div>
+          <form id="f">
+            <div class="glass-card settings-group">
+              <h3>${ICONS.mail} <span>Contact Channels</span></h3>
+              <div class="form-grid">
+                <div>
+                  <label>WhatsApp Number
+                    <input name="whatsapp" value="${E(s.whatsapp)}" placeholder="e.g. 919876543210">
+                    <span class="helper">Include country code without + or spaces (e.g. 91 for India)</span>
+                  </label>
+                </div>
+                <div>
+                  <label>Contact Email
+                    <input name="email" type="email" value="${E(s.email)}" placeholder="dgbc2906@gmail.com">
+                    <span class="helper">Email address used for inquiries & fallback mail links</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card settings-group">
+              <h3>${ICONS.ext} <span>Social Media Profiles</span></h3>
+              <div class="form-grid">
+                <div>
+                  <label>Instagram URL
+                    <input name="instagram" value="${E(s.instagram)}" placeholder="https://instagram.com/your-username">
+                    <span class="helper">Full profile link</span>
+                  </label>
+                </div>
+                <div>
+                  <label>LinkedIn URL
+                    <input name="linkedin" value="${E(s.linkedin)}" placeholder="https://linkedin.com/in/your-username">
+                    <span class="helper">Full LinkedIn profile URL</span>
+                  </label>
+                </div>
+                <div class="form-col-full">
+                  <label>GitHub Profile URL
+                    <input name="github" value="${E(s.github)}" placeholder="https://github.com/your-username">
+                    <span class="helper">Link to your GitHub profile</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card settings-group">
+              <h3>${ICONS.folder} <span>Resume & Documents</span></h3>
+              <div>
+                <label>Resume / CV Link
+                  <input name="cv" value="${E(s.cv)}" placeholder="https://yourportfolio.vercel.app/resume.pdf">
+                  <span class="helper">Public download link for the "Download CV" button on your portfolio</span>
+                </label>
+              </div>
+            </div>
+
+            <button class="btn btn-p" style="padding: 12px 28px;">${ICONS.check} <span>Save Settings</span></button>
+          </form>
+        `;
+
+        const formFields = ['whatsapp', 'email', 'instagram', 'linkedin', 'github', 'cv'];
+        $('#f').onsubmit = async e => {
+          e.preventDefault();
+          const o = {};
+          formFields.forEach(id => o[id] = e.target.elements[id].value.trim());
+          await db.collection('settings').doc('site').set(o, { merge: true });
+          toast('Settings saved successfully');
+        };
+      }
+    };
+  </script>
+</body>
+</html>
