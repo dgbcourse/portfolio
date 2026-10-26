@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Admin | Himesh Patel</title>
+<style>
+*{box-sizing:border-box;margin:0}body{background:#07050f;color:#eceaff;font:15px/1.5 system-ui,Segoe UI,Arial,sans-serif}
+[hidden]{display:none!important}a{color:#7dd3fc}
+#login{min-height:100vh;display:grid;place-items:center;padding:20px}#login form{width:100%;max-width:360px}
+h1,h2{margin-bottom:14px}h3{margin:18px 0 10px}.mu{color:#a9a5c9;font-size:13px}.bad{color:#fca5a5}
+.c{background:#14112b;border:1px solid #2a2550;border-radius:14px;padding:16px;margin-bottom:12px}
+label{display:block;font-size:13px;color:#a9a5c9;margin-bottom:12px}
+input,select,textarea{width:100%;margin-top:5px;padding:11px 13px;border-radius:10px;border:1px solid #3a3466;background:#0d0a20;color:#eceaff;font:inherit}
+button{padding:9px 16px;border-radius:10px;border:1px solid #3a3466;background:#1b1740;color:#eceaff;cursor:pointer;font:inherit;margin:4px 6px 0 0}
+button:hover{border-color:#7dd3fc}button.p{background:#4f46e5;border:0}button.d{color:#fca5a5}
+#app{display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+nav{background:#0d0a20;border-right:1px solid #2a2550;padding:18px 12px}nav b{display:block;margin:0 8px 16px;font-size:17px}
+nav button{display:block;width:100%;text-align:left;border:0;background:none;margin:2px 0}nav button.on{background:#4f46e5}
+main{padding:24px;max-width:860px;width:100%}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px}
+.stats .c{text-align:center;margin:0}.stats b{font-size:30px;display:block;color:#7dd3fc}.stats span{font-size:12px;color:#a9a5c9}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.tg{font-size:11px;padding:2px 9px;border-radius:20px;background:#2a2550}.tg.live,.tg.quote{background:#14532d;color:#86efac}.tg.soon{background:#713f12;color:#fde68a}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#4f46e5;padding:10px 20px;border-radius:30px;opacity:0;transition:.3s;pointer-events:none}
+@media(max-width:700px){#app{grid-template-columns:1fr}nav{display:flex;flex-wrap:wrap;gap:4px;border:0;border-bottom:1px solid #2a2550}nav b{width:100%;margin:0 0 6px}nav button{width:auto}main{padding:16px}}
+</style></head><body>
+<div id="login"><form class="c" id="lf"><h1>Admin Login</h1><label>Email<input id="em" type="email" required autocomplete="username"></label><label>Password<input id="pw" type="password" required autocomplete="current-password"></label><button class="p">Login</button><p id="err" class="bad" style="margin-top:10px"></p></form></div>
+<div id="app" hidden><nav><b>Admin Panel</b><button data-t="dash">Dashboard</button><button data-t="apps">Apps</button><button data-t="projects">Projects</button><button data-t="messages">Messages</button><button data-t="settings">Settings</button><button onclick="auth.signOut()">Logout</button><a href="index.html" style="margin:10px 8px;display:block;font-size:13px">View website</a></nav><main id="main"></main></div>
+<div id="toast"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+const $=s=>document.querySelector(s),E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let auth,db,tab='dash',ed={};
+const COL={apps:{t:'Apps',f:[['name','App name'],['desc','Short description','ta'],['cat','Category'],['icon','Icon (emoji or image link)'],['status','Status','sel'],['link','Google Play link'],['order','Order (1 = shown first)','num']]},
+projects:{t:'Projects',f:[['name','Project name'],['tag','Type (Website, Java, Android...)'],['desc','Description','ta'],['demo','Live demo link'],['github','GitHub link']]}};
+const get=async n=>(await db.collection(n).get()).docs.map(d=>({id:d.id,...d.data()})),ts=m=>m.created&&m.created.toDate?m.created.toDate():new Date(0);
+const toast=t=>{const e=$('#toast');e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,2500)},st=(n,l)=>`<div class="c"><b>${n}</b><span>${l}</span></div>`;
+const C=window.FB_CONFIG;
+if(!C||!C.apiKey||C.apiKey.indexOf('PASTE')==0){$('#err').textContent='Firebase is not set up yet. Fill firebase-config.js first.'}else{
+if(!firebase.apps.length){firebase.initializeApp(C);}
+auth=firebase.auth();db=firebase.firestore();
+const adminEm=(window.ADMIN_EMAIL||'').toLowerCase();
+auth.onAuthStateChanged(u=>{const ok=u&&u.email&&u.email.toLowerCase()==adminEm;if(u&&!ok){auth.signOut();$('#err').textContent='This account is not allowed.'}$('#login').hidden=!!ok;$('#app').hidden=!ok;if(ok)go('dash')})}
+$('#lf').onsubmit=async e=>{e.preventDefault();$('#err').textContent='';if(!auth)return;try{await auth.signInWithEmailAndPassword($('#em').value.trim(),$('#pw').value)}catch(x){$('#err').textContent='Wrong email or password.'}};
+document.querySelectorAll('nav button[data-t]').forEach(b=>b.onclick=()=>go(b.dataset.t));
+async function go(t){tab=t;document.querySelectorAll('nav button[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t==t));const m=$('#main');m.textContent='Loading...';try{await V[t](m)}catch(x){m.innerHTML='<p class="bad">Error: '+E(x.message)+'</p>'}}
+async function del(n,id){if(!confirm('Delete this permanently?'))return;await db.collection(n).doc(id).delete();toast('Deleted');go(tab)}
+const setSt=(id,v)=>db.collection('messages').doc(id).update({status:v}).then(()=>toast('Updated'));
+async function col(m,n){const k=COL[n],L=(await get(n)).sort((a,b)=>(+a.order||99)-(+b.order||99)),x=L.find(i=>i.id==ed[n])||{};
+m.innerHTML=`<h2>${k.t}</h2><form class="c" id="f">${k.f.map(([id,lb,ty])=>`<label>${lb}${ty=='ta'?`<textarea name="${id}" rows="3">${E(x[id])}</textarea>`:ty=='sel'?`<select name="${id}"><option value="soon" ${x[id]!='live'?'selected':''}>Coming Soon</option><option value="live" ${x[id]=='live'?'selected':''}>Live</option></select>`:`<input name="${id}" type="${ty=='num'?'number':'text'}" value="${E(x[id])}">`}</label>`).join('')}<button class="p">${x.id?'Save changes':'Add'}</button>${x.id?`<button type="button" onclick="ed.${n}=null;go(tab)">Cancel</button>`:''}</form><h3>${L.length} item(s)</h3>${L.map(i=>`<div class="c row"><div><b>${E(i.name)}</b> ${i.status?`<span class="tg ${i.status}">${i.status=='live'?'Live':'Soon'}</span>`:''}<br><span class="mu">${E((i.desc||'').slice(0,90))}</span></div><div><button onclick="ed.${n}='${i.id}';go(tab)">Edit</button><button class="d" onclick="del('${n}','${i.id}')">Delete</button></div></div>`).join('')}`;
+$('#f').onsubmit=async e=>{e.preventDefault();const d={};k.f.forEach(([id,,ty])=>{const v=e.target.elements[id].value.trim();d[id]=ty=='num'?(+v||99):v});if(!d.name)return toast('Name is required');if(d.status=='live'&&!/^https?:\/\//.test(d.link||''))return toast('Add the Google Play link for a Live app');const r=db.collection(n);x.id?await r.doc(x.id).set(d,{merge:true}):await r.add({...d,created:firebase.firestore.FieldValue.serverTimestamp()});ed[n]=null;toast('Saved');go(tab)}}
+const V={async dash(m){const[a,p,ms]=await Promise.all([get('apps'),get('projects'),get('messages')]);m.innerHTML=`<h2>Dashboard</h2><div class="stats">${st(a.length,'Apps')}${st(a.filter(x=>x.status=='live').length,'Live on Play Store')}${st(p.length,'Projects')}${st(ms.filter(x=>x.status=='new').length,'New messages')}${st(ms.length,'Total messages')}</div><p class="mu">Add an app in Apps. When you set it to Live with its Play Store link, your website shows a Get it on Google Play button on that app.</p>`},
+apps:m=>col(m,'apps'),projects:m=>col(m,'projects'),
+async messages(m){const L=(await get('messages')).sort((a,b)=>ts(b)-ts(a));m.innerHTML='<h2>Messages and Quotes</h2>'+(L.length?'':'<p class="mu">No messages yet.</p>')+L.map(i=>{const c=E(i.email||''),r=/@/.test(i.email||'')?`<a href="mailto:${c}">Reply by email</a> `:/\d{8,}/.test(i.email||'')?`<a target="_blank" rel="noopener" href="https://wa.me/${(i.email||'').replace(/\D/g,'')}">Reply on WhatsApp</a> `:'';return `<div class="c"><div class="row"><div><span class="tg ${i.type=='quote'?'quote':''}">${i.type=='quote'?'Quote':'Message'}</span> <b>${E(i.name)}</b><br><span class="mu">${c} | ${ts(i).toLocaleString()}</span></div><select style="width:auto" onchange="setSt('${i.id}',this.value)">${['new','contacted','done'].map(s=>`<option ${i.status==s?'selected':''}>${s}</option>`).join('')}</select></div>${i.type=='quote'?`<p class="mu">${E(i.qType)} | ${E(i.budget)} | ${E(i.time)}</p>`:''}<p style="margin:8px 0;white-space:pre-wrap">${E(i.details)}</p>${r}<button class="d" onclick="del('messages','${i.id}')">Delete</button></div>`}).join('')},
+async settings(m){const d=await db.collection('settings').doc('site').get(),s=d.exists?d.data():{},F=[['whatsapp','WhatsApp number with country code, digits only (like 919876543210)'],['email','Email'],['instagram','Instagram link'],['linkedin','LinkedIn link'],['github','GitHub link'],['cv','Resume PDF link (like https://portfolio-himesh.vercel.app/resume.pdf)']];
+m.innerHTML=`<h2>Site Settings</h2><form class="c" id="f">${F.map(([id,l])=>`<label>${l}<input name="${id}" value="${E(s[id])}"></label>`).join('')}<button class="p">Save settings</button></form>`;
+$('#f').onsubmit=async e=>{e.preventDefault();const o={};F.forEach(([id])=>o[id]=e.target.elements[id].value.trim());await db.collection('settings').doc('site').set(o,{merge:true});toast('Saved')}}};
+</script></body></html>
